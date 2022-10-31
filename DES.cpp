@@ -1,46 +1,97 @@
-#define FDEBUG 1
-#if FDEBUG
+#define FDEBUG 0
+#if FDEBUG==1
 #define DPRINTF(str, arg...) printf(str, arg)
 #define DCOUT(str,bs) {bitset<64> out; for(int i=0; i<bs.size();i++){out[i]=bs[bs.size()-1-i];};cout<<str<<hex<< out.to_ullong()<<endl;}
 #define RCOUT(str,bs) {bitset<64> out; for(int i=0; i<bs.size();i++){out[i]=bs[bs.size()-1-i];};cout<<str<< out<<endl;}
 #endif
 #if FDEBUG==0
 #define DPRINTF(str, arg...) 
+#define DCOUT(str,bs) 
+#define RCOUT(str,bs) 
 #endif
 #include "DES.h"
 #include <iostream>
+#include <fstream>
 #include <bitset>
+#include <cstring>
 using namespace std;
-bitset<64> DES_encrypt(bitset<64>,bitset<64>);
+bitset<64> DES(bitset<64>,bitset<64>,bool);
 bitset<32> F(bitset<32>, bitset<48>);
 bitset<28> leftshift(bitset<28> k, int shift);
 void generateKeys(bitset <64> key, bitset <48>* subkey);
+int example();
 int main(int argc, char* argv[])
 {
-    /*
-       if (argc > 1)
-       {
-             cout << argv[1]<< endl;
-       } else
-               {
-                 cout << "Not arguments" << endl;
-               }
-    */
+    
+    if (argc > 1)
+    {
+      if(string(argv[1]) == string("example"))
+      {
+        example();
+        return 0;
+      }
+      
+      if(argc > 2 && string(argv[1]) == string("-f"))
+      {
+      bitset<64> temp;
+      unsigned long long int TEXT;
+      unsigned long long int TESTKEY = 0xAABB09182736CCDD;
+      bitset<64> key{TESTKEY} ;
+      fstream file;
+      file.open(argv[2], ios::binary | ios::in);
+      if(!file){
+        cout<<"file "<< argv[2] <<" not found"<<endl;
+      }
+      char plain[8];
+      char plain2[8];
+      while (!file.eof()){
+      memset(plain, 0, sizeof(plain));
+      memset(plain2, 0, sizeof(plain2));
+      file.read((char*)plain, sizeof(plain));
+      cout<<"plain "<<endl;
+      for(int i=0; i< sizeof(plain);i++){
+        cout<<hex<<(int)plain[i];
+        plain2[sizeof(plain)-i-1]=plain[i];
+      }
+      cout<<endl;
+      memmove(&TEXT,plain2,sizeof(plain2));
+      temp = {TEXT};
+      // cout<<"text1: "<<hex<<TEXT<<endl;
+      // cout<<"text2: "<<hex<<temp.to_ullong()<<endl;
+      cout<<"result: "<<hex<<DES(temp,key,true).to_ullong()<<endl;
+      }
+      file.close();
+        return 0;
+      }
+
+    } 
+    else
+    {
+      cout << "Usage: " << endl;
+      cout << "DES.exe example - show example" << endl;
+      return 1;
+    }
+    
+
+}
+int example(){
     setlocale(LC_ALL,"russian");
-    unsigned long long int TEST1   = 0x123456ABCD132536;
+    unsigned long long int PLAINTEXT   = 0x123456ABCD132536;
     unsigned long long int TESTKEY = 0xAABB09182736CCDD;
-    printf("sizeof: %i\n", sizeof(TEST1)*8);
-    printf("hex TEST: %I64x\n", TEST1);
+    printf("sizeof: %i\n", sizeof(PLAINTEXT)*8);
+    printf("hex TEST: %I64x\n", PLAINTEXT);
     printf("hex KEY: %I64x\n", TESTKEY);
-    printf("hex: %I64x\n",DES_encrypt(bitset<64>{TEST1}, bitset<64>{TESTKEY}));
+    printf("result: %I64x\n",DES(bitset<64>{PLAINTEXT}, bitset<64>{TESTKEY}, true));
     // system("pause");
     return 0;
 }
-bitset<64> DES_encrypt(bitset<64> text, bitset<64> key){
+bitset<64> DES(bitset<64> text, bitset<64> key, bool encrypt = true){
   bitset<32> left;
-  bitset<32> tmp;
   bitset<32> right;
   bitset <48> subkey [16];
+  //reverse direction for key and plaintext
+  //this is necessary because in DES numbering \
+  starts from the beginning, and in bitset from the end
   {bitset<64> out; 
   for(int i=0; i<key.size();i++)
   {out[i]=key[key.size()-1-i];};
@@ -54,38 +105,51 @@ bitset<64> DES_encrypt(bitset<64> text, bitset<64> key){
   bitset<64> start_tmp = text;
   DCOUT("key:  ", key);
   DCOUT("text: ", text);
-  // cout <<"text "<< text << endl;
-  // cout <<"key  "<< key << endl;
   generateKeys(key,subkey);
-  //Начальная перестановка
-  for (int i = 0; i < 16; i++)
-    {
-      // DPRINTF("%x\n", subkey[i]);
-    }
+  //Initial permutation
   for (int i = 0; i < 64; i++)
 	  start_tmp[i] = text[IP[i] - 1];
   for (int i = 0; i < 32; i++)
       left[i] = start_tmp[i];
   for (int i = 0; i < 32; i++)
       right[i] = start_tmp[i+32];
-  // DPRINTF("%lx | %lx\n", left, right);
-  printf("initial permutation\n");
-  // printf("%lx | %lx\n", left, right);
+  DPRINTF("Initial permutation\n","");
     DCOUT("!left:  ",left);
     DCOUT("!right: ",right);
-  printf("16 rounds\n");
-  // 16 раундов 
+  DPRINTF("16 rounds\n","");
+  // 16 rounds 
 	for (int round = 0; round < 16; round++)
 	{
-		tmp = right;
-		right = left ^ F(right, subkey[round]);
+		bitset<32> tmp = right;
+    if(encrypt){
+		  right = left ^ F(right, subkey[round]);
+    }
+    else{
+		  right = left ^ F(right, subkey[15-round]);
+    }
 		left = tmp;
     DCOUT("!left:  ",left);
     DCOUT("!right: ",right);
     DCOUT("!skey:  ",subkey[round]);
-    // printf("%lx | %lx | %I64x\n", left, right, subkey[round]);
   }
-    return start_tmp;
+  
+	// Merge
+  bitset<64> result;
+	for (int i = 0; i < 32; i++)
+		result[i] = right[i];
+	for (int i = 32; i < 64; i++)
+		result[i] = left[i - 32];
+	bitset<64> tmp = result;
+	for (int i = 0; i < 64; i++)
+		result[i] = tmp[IP_1[i] - 1];
+	// Revers reverse direction for result
+  //
+  {bitset<64> out; 
+  for(int i=0; i<result.size();i++)
+  {out[i]=result[result.size()-1-i];};
+  result=out;
+  }
+  return result;
 
 }
 void generateKeys(bitset <64> key, bitset <48>* subkey) {
@@ -102,23 +166,13 @@ void generateKeys(bitset <64> key, bitset <48>* subkey) {
 
   }
   DCOUT("rk: ",real_key);
-//   cout <<"perm key: ";
-//     for (int i = 0; i < 56; i++){
-// 		cout << key[(key.size()-1) - (PC_1[i] - 1)];
-
-//   }
-//   cout << endl;
-//  cout <<"real key: "<<hex<< real_key.to_ullong()<<endl;
-//  cout <<"real key: "<<real_key<<endl;
-//  cout <<"real key: "<<real_key.count()<<endl;
 	for (int round = 0; round < 16; round++)
 	{
 		for (int i = 0; i < 28; i++){
 			left[i] = real_key[i];
 			right[i] = real_key[i+28];
     }
-    // cout <<"keys: "<<hex<< left.to_ullong() <<" "<< left.to_ullong()<< endl; 
-		 // Сдвиг влево
+		 // Left shift
     if(round == 0 || round == 1 || round == 8 || round == 15){
 		  left  = leftshift(left,  1);
 		  right = leftshift(right, 1);
@@ -127,7 +181,7 @@ void generateKeys(bitset <64> key, bitset <48>* subkey) {
       left  = leftshift(left,  2);
 		  right = leftshift(right, 2);
     }
-		 // Подключаем, заменяем и выбираем ПК-2 для перестановки и сжатия
+		 // 
 		for (int i=0; i < 28; i++)
 			real_key[i] = left[i];
 		for (int i = 28; i < 56; i++)
@@ -143,7 +197,7 @@ void generateKeys(bitset <64> key, bitset <48>* subkey) {
 }
 
 bitset<32> F(bitset<32> R, bitset<48> k){
-	// Расширение электронного блока
+	// Expand block
 	bitset<48> expandR;  
 	for (int i = 0; i < 48; i++)
 		expandR[i] = R[E[i]-1];  
@@ -153,7 +207,7 @@ bitset<32> F(bitset<32> R, bitset<48> k){
   DCOUT("right_expanded ", expandR);
 	 // XOR
 	expandR = expandR ^ k;
-	 // вместо этого S-поле
+	 // 
 	bitset<32> output;
 	int x = 0;
 	for (int i = 0; i < 48; i = i + 6)
@@ -168,7 +222,7 @@ bitset<32> F(bitset<32> R, bitset<48> k){
 		output[x] = temp[3];
 		x += 4;
 	}
-	 // Замена P-бокса
+	 // P box
 	bitset<32> tmp = output;
 	for (int i = 0; i < 32; i++)
 		output[i] = tmp[P[i] - 1];
@@ -176,20 +230,13 @@ bitset<32> F(bitset<32> R, bitset<48> k){
 	return output;
 }
 bitset<28> leftshift(bitset<28> k, int shift) {
-  ///Сдвиг влево превращается в сдвиг вправо 
-  ///из-за того, что ключ инвертирован
-
-      for(int i=0; i<shift; i++) 
+   ///Left shift becomes right shift
+   /// because the key is inverted
+    for(int i=0; i<shift; i++) 
     {
         bool temp = k[0];
-        k >>= 1; // - сдвиг вправо
+        k >>= 1; // - right shift
         k[k.size()-1] = temp;
     }
-    //       for(int i=0; i<shift; i++) 
-    // {
-    //     bool temp = k[k.size()-1];
-    //     k <<= 1; // << - сдвиг влево
-    //     k[0] = temp;
-    // }
     return k;
 }
