@@ -14,6 +14,7 @@
 #include <fstream>
 #include <bitset>
 #include <cstring>
+#include <ctime>
 using namespace std;
 bitset<64> DES(bitset<64>,bitset<64>,bool);
 bitset<32> F(bitset<32>, bitset<48>);
@@ -22,56 +23,76 @@ void generateKeys(bitset <64> key, bitset <48>* subkey);
 int example();
 int main(int argc, char* argv[])
 {
-    
-    if (argc > 1)
+    if(argc > 1 && string(argv[1]) == string("example"))
     {
-      if(string(argv[1]) == string("example"))
-      {
-        example();
-        return 0;
-      }
-      
-      if(argc > 2 && string(argv[1]) == string("-f"))
-      {
-      bitset<64> temp;
-      unsigned long long int TEXT;
-      unsigned long long int TESTKEY = 0xAABB09182736CCDD;
-      bitset<64> key{TESTKEY} ;
-      fstream file;
-      file.open(argv[2], ios::binary | ios::in);
-      if(!file){
-        cout<<"file "<< argv[2] <<" not found"<<endl;
-      }
-      char plain[8];
-      char plain2[8];
-      while (!file.eof()){
-      memset(plain, 0, sizeof(plain));
-      memset(plain2, 0, sizeof(plain2));
-      file.read((char*)plain, sizeof(plain));
-      cout<<"plain "<<endl;
-      for(int i=0; i< sizeof(plain);i++){
-        cout<<hex<<(int)plain[i];
-        plain2[sizeof(plain)-i-1]=plain[i];
-      }
-      cout<<endl;
-      memmove(&TEXT,plain2,sizeof(plain2));
-      temp = {TEXT};
-      // cout<<"text1: "<<hex<<TEXT<<endl;
-      // cout<<"text2: "<<hex<<temp.to_ullong()<<endl;
-      cout<<"result: "<<hex<<DES(temp,key,true).to_ullong()<<endl;
-      }
-      file.close();
-        return 0;
-      }
-
-    } 
-    else
-    {
-      cout << "Usage: " << endl;
-      cout << "DES.exe example - show example" << endl;
-      return 1;
+      example();
+      system("pause");
+      return 0;
     }
     
+    
+    if(argc > 2 && string(argv[1]) == string("encrypt"))
+    {
+    // bitset<64> temp;
+    unsigned int start_time =  clock();
+    unsigned long long int TEXT;
+    unsigned long long int TESTKEY = 0xAABB09182736CCDD;
+    bitset<64> key{TESTKEY} ;
+    fstream file;
+    fstream fileout;
+    file.open(argv[2], ios::binary | ios::in);
+    fileout.open("out.txt", ios::binary | ios::out);
+    if(!file){
+      cout<<"file "<< argv[2] <<" not found"<<endl;
+    }
+    cout<<"Encryption....";
+    char plain[8];
+    char tmp[8];
+    while (!file.eof()){
+    memset(plain, 0, sizeof(plain));
+    memset(tmp, 0, sizeof(tmp));
+    file.read((char*)plain, sizeof(plain));
+    // cout<<"plain "<<endl;
+    for(int i=0; i< sizeof(plain);i++){
+      // cout << hex << (int)plain[i];
+      tmp[sizeof(plain)-i-1] = plain[i];
+    }
+    // cout<<endl;
+    memmove(&TEXT, tmp, sizeof(tmp));
+    
+    // cout<<"text1: "<<hex<<TEXT<<endl;
+    // cout<<"text2: "<<hex<<temp.to_ullong()<<endl;
+    bitset<64> result = DES({TEXT}, key, true);
+    // cout << "result: " << hex << result.to_ullong() << endl;
+
+    TEXT = result.to_ullong();
+    char tmp2[8];
+    memmove(tmp, &TEXT, sizeof(tmp));
+    for(int i=0; i< sizeof(tmp);i++){
+      tmp2[sizeof(tmp)-i-1] = tmp[i];
+    }
+    memmove(&TEXT, tmp2, sizeof(tmp2));
+    fileout.write((char*)&TEXT, sizeof(TEXT));
+    if (fileout.bad()){
+    cout<<"fail "<< fileout.exceptions() <<endl;
+    }
+    }
+    cout<<"done successfully"<<endl;
+    unsigned int end_time = clock(); 
+    double time = end_time - start_time;
+    cout<<"time: "<<time/1000.0<<" s "<<endl;
+
+    file.close();
+    fileout.close();
+    return 0;
+    }
+
+    cout << "Usage: " << endl;
+    cout << "DES.exe example - show example" << endl;
+    cout << "DES.exe encrypt filename - encrypt file" << endl;
+    system("pause");
+    return 1;
+ 
 
 }
 int example(){
@@ -159,7 +180,7 @@ void generateKeys(bitset <64> key, bitset <48>* subkey) {
 	bitset<48> compressKey;
  
 	
- cout <<"key: "<<key<<endl;
+//  cout <<"key: "<<key<<endl;
   for (int i = 0; i < 56; i++){
 		real_key[i] = key[PC_1[i] - 1];
 		// real_key[(real_key.size()-1) - (i)] = key[(key.size()-1) - (PC_1[i] - 1)];
