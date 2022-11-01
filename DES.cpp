@@ -31,8 +31,18 @@ int main(int argc, char* argv[])
     }
     
     
-    if(argc > 2 && string(argv[1]) == string("encrypt"))
+    if(argc > 3 && ((string(argv[1]) == string("encrypt"))||(string(argv[1]) == string("decrypt"))))
     {
+      bool flag_encrypt;
+      if(string(argv[1]) == string("encrypt")){
+        cout<<"Encryption....";  
+        flag_encrypt = true;
+      }
+      else
+      {
+        cout<<"Decryption....";  
+        flag_encrypt = false;
+      }
     // bitset<64> temp;
     unsigned int start_time =  clock();
     unsigned long long int TEXT;
@@ -41,11 +51,15 @@ int main(int argc, char* argv[])
     fstream file;
     fstream fileout;
     file.open(argv[2], ios::binary | ios::in);
-    fileout.open("out.txt", ios::binary | ios::out);
+    fileout.open(argv[3], ios::binary | ios::out);
     if(!file){
       cout<<"file "<< argv[2] <<" not found"<<endl;
+      return 9090;
     }
-    cout<<"Encryption....";
+      if(!fileout){
+      cout<<"file "<< argv[3] <<" not found"<<endl;
+      return 9090;
+    }
     char plain[8];
     char tmp[8];
     while (!file.eof()){
@@ -59,14 +73,16 @@ int main(int argc, char* argv[])
     }
     // cout<<endl;
     memmove(&TEXT, tmp, sizeof(tmp));
-    
+    if(file.eof() && !flag_encrypt) break;
     // cout<<"text1: "<<hex<<TEXT<<endl;
     // cout<<"text2: "<<hex<<temp.to_ullong()<<endl;
-    bitset<64> result = DES({TEXT}, key, true);
+    bitset<64> result = DES({TEXT}, key, flag_encrypt);
     // cout << "result: " << hex << result.to_ullong() << endl;
-
+    TEXT = 0;
     TEXT = result.to_ullong();
     char tmp2[8];
+    memset(tmp, 0, sizeof(tmp));
+    memset(tmp2, 0, sizeof(tmp));
     memmove(tmp, &TEXT, sizeof(tmp));
     for(int i=0; i< sizeof(tmp);i++){
       tmp2[sizeof(tmp)-i-1] = tmp[i];
@@ -89,7 +105,8 @@ int main(int argc, char* argv[])
 
     cout << "Usage: " << endl;
     cout << "DES.exe example - show example" << endl;
-    cout << "DES.exe encrypt filename - encrypt file" << endl;
+    cout << "DES.exe encrypt fileinname fileoutname - encrypt file" << endl;
+    cout << "DES.exe decrypt fileinname fileoutname - decrypt file" << endl;
     system("pause");
     return 1;
  
@@ -106,7 +123,7 @@ int example(){
     // system("pause");
     return 0;
 }
-bitset<64> DES(bitset<64> text, bitset<64> key, bool encrypt = true){
+  bitset<64> DES(bitset<64> text, bitset<64> key, bool encrypt = true){
   bitset<32> left;
   bitset<32> right;
   bitset <48> subkey [16];
